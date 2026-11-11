@@ -31,7 +31,7 @@ input{font:inherit;width:100%;padding:8px;border:1px solid var(--line);border-ra
 <script>
 // ---- 設定の保存（このブラウザの中だけ） ----
 const S={get(k,d){try{return localStorage.getItem(k)??d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
-let cfg={clientId:S.get('cid',''),token:S.get('tok',''),host:S.get('host','api.pcloud.com'),folder:S.get('folder','')};
+let cfg={clientId:S.get('cid','p3yyOitV43F'),token:S.get('tok',''),host:S.get('host','api.pcloud.com'),folder:S.get('folder','')};
 const $=s=>document.querySelector(s), main=$('#main');
 const DEMO=new URLSearchParams(location.search).has('demo');
 
