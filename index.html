@@ -140,7 +140,7 @@ async function fillThumbs(part){
   apply();
   for(let i=0;i<need.length;i+=50){
     try{
-      const r=await api('getthumbslinks',{fileids:need.slice(i,i+50).join(','),size:'256x256',crop:1,type:'jpg'});
+      const r=await api('getthumbslinks',{fileids:need.slice(i,i+50).join(','),size:'512x512',crop:1,type:'jpg'});
       (r.thumbs||[]).forEach(t=>{if(t.result===0&&t.hosts&&t.hosts.length)thumbs.set(t.fileid,'https://'+t.hosts[0]+t.path)});
       apply();
     }catch(e){}
