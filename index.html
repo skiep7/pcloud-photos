@@ -156,9 +156,17 @@ async function openViewer(i){
   v.querySelectorAll('img,video').forEach(e=>e.remove());
   $('#vt').textContent=(i+1)+' / '+list.length+'　'+t.name;
   try{
-    const r=t.v?await api('getfilelink',{fileid:t.id}):await api('getthumblink',{fileid:t.id,size:'2048x1024',type:'jpg'});
+    let url;
+    if(t.v){
+      let r;try{r=await api('getvideolink',{fileid:t.id})}catch(e){r=await api('getfilelink',{fileid:t.id})}
+      url='https://'+r.hosts[0]+r.path;
+    }else{
+      const r=await api('getthumbslinks',{fileids:t.id,size:'2048x1024',type:'jpg'});
+      const th=(r.thumbs||[])[0];
+      if(!th||th.result!==0)throw new Error((th&&th.error)||'リンクが取れません');
+      url='https://'+th.hosts[0]+th.path;
+    }
     if(vi!==i)return;
-    const url='https://'+r.hosts[0]+r.path;
     const el=document.createElement(t.v?'video':'img');
     el.referrerPolicy='no-referrer';el.src=url;if(t.v){el.controls=true;el.playsInline=true;el.autoplay=true}
     v.insertBefore(el,v.firstChild);
