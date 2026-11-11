@@ -158,8 +158,15 @@ async function openViewer(i){
   try{
     let url;
     if(t.v){
-      let r;try{r=await api('getvideolink',{fileid:t.id})}catch(e){r=await api('getfilelink',{fileid:t.id})}
-      url='https://'+r.hosts[0]+r.path;
+      const errs=[];
+      const tries=[
+        ['getvideolinks',r=>{const v=(r.variants||[]).find(x=>x.hosts&&x.path);return v&&'https://'+v.hosts[0]+v.path}],
+        ['gethlslink',r=>r.hosts&&'https://'+r.hosts[0]+r.path],
+        ['getvideolink',r=>r.hosts&&'https://'+r.hosts[0]+r.path],
+        ['getfilelink',r=>r.hosts&&'https://'+r.hosts[0]+r.path],
+      ];
+      for(const [m,f] of tries){try{url=f(await api(m,{fileid:t.id}));if(url)break;errs.push(m+':空')}catch(e){errs.push(m+':'+e.message)}}
+      if(!url)throw new Error(errs.join(' / '));
     }else{
       const r=await api('getthumbslinks',{fileids:t.id,size:'2048x1024',type:'jpg'});
       const th=(r.thumbs||[])[0];
