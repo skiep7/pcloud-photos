@@ -6,118 +6,218 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>pCloud写真</title>
 <style>
-:root{--bg:#fff;--fg:#1a1a1a;--sub:#777;--line:#ddd;--acc:#0a7cff}
-@media(prefers-color-scheme:dark){:root{--bg:#111;--fg:#eee;--sub:#999;--line:#333;--acc:#4da3ff}}
+:root{--bg:#fff;--panel:#f4f5f6;--fg:#1a1d20;--sub:#6b7680;--line:#dde1e4;--acc:#0a7cff;--accfg:#fff}
+@media(prefers-color-scheme:dark){:root{--bg:#101214;--panel:#1a1d20;--fg:#eceff1;--sub:#98a2aa;--line:#2b3136;--acc:#4da3ff;--accfg:#08131f}}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 -apple-system,"Hiragino Sans",sans-serif}
-header{position:sticky;top:0;background:var(--bg);border-bottom:1px solid var(--line);padding:10px 16px;display:flex;gap:8px;align-items:center;z-index:2}
-header h1{font-size:17px;margin:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-button{font:inherit;background:none;border:1px solid var(--line);color:var(--acc);border-radius:8px;padding:6px 12px}
-main{padding:12px 16px}
-.list button{display:block;width:100%;text-align:left;border:0;border-bottom:1px solid var(--line);border-radius:0;padding:12px 4px;color:var(--fg)}
-.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:2px}
-.grid div{aspect-ratio:1;background:#8883;overflow:hidden}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 -apple-system,"Hiragino Sans","Yu Gothic",sans-serif;display:flex;flex-direction:column}
+header{padding:10px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px;min-height:48px}
+header h1{font-size:17px;margin:0;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+header span{color:var(--sub);font-size:13px;white-space:nowrap}
+main{flex:1;overflow-y:auto;padding:0 0 12px}
+nav{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--line);background:var(--bg);padding-bottom:env(safe-area-inset-bottom,0px)}
+nav button{font:inherit;font-size:14px;border:0;background:none;color:var(--sub);padding:12px 4px}
+nav button[aria-current="true"]{color:var(--acc);font-weight:600}
+button{font:inherit}
+.btn{border:1px solid var(--line);background:none;color:var(--acc);border-radius:8px;padding:8px 14px}
+.btn.main{background:var(--acc);color:var(--accfg);border-color:var(--acc)}
+.pad{padding:12px 16px}
+.note{color:var(--sub);font-size:13px}
+.chips{display:flex;gap:6px;flex-wrap:wrap;padding:10px 16px 0}
+.chips button{border:1px solid var(--line);background:none;color:var(--fg);border-radius:999px;padding:2px 12px;font-size:13px}
+.chips button[aria-pressed="true"]{background:var(--acc);color:var(--accfg);border-color:var(--acc)}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:2px;padding-top:10px}
+.grid .c{aspect-ratio:1;position:relative;overflow:hidden;background:var(--panel);border:0;padding:0}
 .grid img{width:100%;height:100%;object-fit:cover;display:block}
-.note{color:var(--sub);font-size:14px}
-#viewer{position:fixed;inset:0;background:#000;display:none;align-items:center;justify-content:center;z-index:5}
-#viewer img{max-width:100%;max-height:100%}
-input{font:inherit;width:100%;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--fg)}
+.badge{position:absolute;right:3px;bottom:3px;background:#000b;color:#fff;font-size:11px;padding:0 5px;border-radius:4px}
+.row{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line)}
+.row input{width:22px;height:22px;accent-color:var(--acc);flex:none}
+.row button.name{flex:1;min-width:0;text-align:left;border:0;background:none;color:var(--fg);padding:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row small{color:var(--sub)}
+input[type=text]{font:inherit;width:100%;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--fg)}
+#viewer{position:fixed;inset:0;background:#000;display:none;align-items:center;justify-content:center;z-index:10}
+#viewer img,#viewer video{max-width:100%;max-height:100%}
+#viewer .x,#viewer .p,#viewer .n{position:absolute;background:#0008;color:#fff;border:0;border-radius:999px;width:44px;height:44px;font-size:20px}
+#viewer .x{top:calc(12px + env(safe-area-inset-top,0px));right:12px}
+#viewer .p{left:8px;top:50%}
+#viewer .n{right:8px;top:50%}
+#viewer .t{position:absolute;bottom:calc(10px + env(safe-area-inset-bottom,0px));left:0;right:0;text-align:center;color:#fff;font-size:12px}
 </style>
 </head>
 <body>
-<header><h1 id="title">pCloud写真</h1><button id="back" hidden>戻る</button><button id="gear">設定</button></header>
+<header><h1 id="title">pCloud写真</h1><span id="count"></span></header>
 <main id="main"></main>
-<div id="viewer"><img id="big"></div>
-<script>
-// ---- 設定の保存（このブラウザの中だけ） ----
-const S={get(k,d){try{return localStorage.getItem(k)??d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
-let cfg={clientId:S.get('cid','p3yyOitV43F'),token:S.get('tok',''),host:S.get('host','api.pcloud.com'),folder:S.get('folder','')};
-const $=s=>document.querySelector(s), main=$('#main');
-const DEMO=new URLSearchParams(location.search).has('demo');
+<nav>
+  <button id="t-photos">写真</button>
+  <button id="t-folders">フォルダ</button>
+  <button id="t-settings">設定</button>
+</nav>
+<div id="viewer"><button class="x" id="vx" aria-label="閉じる">✕</button><button class="p" id="vp" aria-label="前へ">‹</button><button class="n" id="vn" aria-label="次へ">›</button><div class="t" id="vt"></div></div>
 
-// ---- OAuth（トークンは、pCloudのログイン画面から戻ってきた値だけ。パスワードは扱わない） ----
+<script>
+// ---------- 保存（このブラウザの中だけ） ----------
+const S={get(k,d){try{const v=localStorage.getItem(k);return v===null?d:v}catch(e){return d}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
+let cfg={clientId:S.get('cid','p3yyOitV43F'),token:S.get('tok',''),host:S.get('host','api.pcloud.com'),folders:[]};
+try{cfg.folders=JSON.parse(S.get('folders','[]'))||[]}catch(e){cfg.folders=[]}
+const $=s=>document.querySelector(s), main=$('#main');
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+// ---------- ログイン（パスワードは、このページでは扱わない） ----------
 if(location.hash.includes('access_token')){
   const p=new URLSearchParams(location.hash.slice(1));
-  S.set('tok',p.get('access_token'));S.set('host',p.get('hostname')||'api.pcloud.com');
+  S.set('tok',p.get('access_token')||'');S.set('host',p.get('hostname')||'api.pcloud.com');
   cfg.token=S.get('tok');cfg.host=S.get('host');history.replaceState(null,'',location.pathname);
 }
 function login(){
   const redirect=location.origin+location.pathname;
-  location.href=`https://my.pcloud.com/oauth2/authorize?client_id=${encodeURIComponent(cfg.clientId)}&response_type=token&redirect_uri=${encodeURIComponent(redirect)}`;
+  location.href='https://my.pcloud.com/oauth2/authorize?client_id='+encodeURIComponent(cfg.clientId)+'&response_type=token&redirect_uri='+encodeURIComponent(redirect);
 }
+function logout(){S.set('tok','');cfg.token='';go('settings')}
 
-// ---- API ----
+// ---------- API ----------
 async function api(method,params){
-  if(DEMO)return demo(method,params);
-  const u=new URL(`https://${cfg.host}/${method}`);
+  const u=new URL('https://'+cfg.host+'/'+method);
   u.searchParams.set('access_token',cfg.token);
   for(const k in params)u.searchParams.set(k,params[k]);
   const r=await (await fetch(u)).json();
-  if(r.result!==0)throw new Error(r.error||('error '+r.result));
+  if(r.result!==0){const e=new Error(r.error||('error '+r.result));e.code=r.result;throw e}
   return r;
 }
-function demo(method,p){
-  if(method==='listfolder'){
-    const root=!p.path||p.path==='/';
-    const c=root?[{isfolder:true,name:'Automatic Upload'},{isfolder:true,name:'Dining'},{isfolder:true,name:'Trip'},{isfolder:true,name:'Business'}]
-      :Array.from({length:24},(_,i)=>({isfolder:false,fileid:i+1,name:`IMG_${1000+i}.HEIC`,category:1}));
-    return {metadata:{contents:c}};
-  }
-  if(method==='getthumblinks')return {thumbs:p.fileids.split(',').map(id=>({fileid:+id,thumb:ph(id,200)}))};
-  if(method==='getfilelink')return {hosts:[''],path:ph(p.fileid,900),_raw:true};
-}
-function ph(id,s){const h=(id*47)%360;return 'data:image/svg+xml,'+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="${s}" height="${s}"><rect width="100%" height="100%" fill="hsl(${h},55%,60%)"/><text x="50%" y="52%" font-size="${s/5}" fill="#fff" text-anchor="middle">${id}</text></svg>`)}
+const IMG=/\.(heic|heif|jpe?g|png|gif|webp)$/i, VID=/\.(mov|mp4|m4v)$/i;
+function kind(f){ if(f.category===1||IMG.test(f.name))return 'i'; if(f.category===2||VID.test(f.name))return 'v'; return ''; }
 
-// ---- 画面 ----
-let path='';
-function setTitle(t){$('#title').textContent=t}
-async function show(){
-  if(!DEMO&&!cfg.token)return settings();
-  const home=cfg.folder||'/';
-  $('#back').hidden=(path===''||path===home);
-  setTitle(path?path.split('/').pop()||'/':'フォルダを選ぶ');
-  main.innerHTML='<p class="note">読み込み中…</p>';
+// ---------- 状態 ----------
+let tab='photos', items=[], loaded=false, loading=false, loadErr='';
+let ftype='all', ffolder=-1, shown=60, list=[];
+let browse='/', thumbs=new Map();
+
+function go(t){tab=t;render()}
+$('#t-photos').onclick=()=>go('photos');$('#t-folders').onclick=()=>go('folders');$('#t-settings').onclick=()=>go('settings');
+function setNav(){['photos','folders','settings'].forEach(t=>$('#t-'+t).setAttribute('aria-current',String(tab===t)))}
+
+// ---------- 写真（選んだフォルダの下を、全部まとめて） ----------
+async function loadAll(){
+  loading=true;loadErr='';items=[];loaded=false;render();
   try{
-    const r=await api('listfolder',{path:path||'/'});
-    const items=r.metadata.contents||[];
-    const folders=items.filter(i=>i.isfolder), imgs=items.filter(i=>!i.isfolder&&i.category===1);
-    let html='';
-    if(folders.length)html+='<div class="list">'+folders.map(f=>`<button data-open="${esc(f.name)}">📁 ${esc(f.name)}</button>`).join('')+'</div>';
-    if(path&&path!==cfg.folder)html+=`<p><button id="pin">このフォルダを「写真」に指定する</button></p>`;
-    if(imgs.length)html+='<div class="grid" id="grid">'+imgs.map(i=>`<div data-id="${i.fileid}"></div>`).join('')+'</div>';
-    if(!folders.length&&!imgs.length)html+='<p class="note">このフォルダに画像はありません。</p>';
-    main.innerHTML=html;
-    main.querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>{path=(path==='/'?'':path)+'/'+b.dataset.open;show()});
-    const pin=$('#pin');if(pin)pin.onclick=()=>{cfg.folder=path;S.set('folder',path);alert('指定しました：'+path);show()};
-    if(imgs.length)thumbs(imgs.map(i=>i.fileid));
-  }catch(e){main.innerHTML=`<p>失敗しました：${esc(e.message)}</p><p><button onclick="settings()">設定を開く</button></p>`}
+    for(let fi=0;fi<cfg.folders.length;fi++){
+      $('#count').textContent='読み込み中 '+(fi+1)+'/'+cfg.folders.length;
+      const r=await api('listfolder',{path:cfg.folders[fi],recursive:1});
+      (function walk(c){(c||[]).forEach(f=>{
+        if(f.isfolder)walk(f.contents);
+        else{const k=kind(f);if(k)items.push({id:f.fileid,name:f.name,t:Date.parse(f.modified)||0,v:k==='v',fi})}
+      })})(r.metadata.contents);
+    }
+    items.sort((a,b)=>b.t-a.t);loaded=true;
+  }catch(e){loadErr=e.message;if([1000,2000,2094,2095].includes(e.code)){S.set('tok','');cfg.token=''}}
+  loading=false;shown=60;render();
 }
-async function thumbs(ids){
-  for(let i=0;i<ids.length;i+=50){
-    const part=ids.slice(i,i+50);
-    const r=await api('getthumblinks',{fileids:part.join(','),size:'256x256',crop:1});
-    (r.thumbs||[]).forEach(t=>{const d=main.querySelector(`[data-id="${t.fileid}"]`);if(d&&t.thumb){d.innerHTML=`<img loading="lazy" src="${t.thumb}">`;d.onclick=()=>open(t.fileid)}});
+function renderPhotos(){
+  $('#title').textContent='写真';
+  if(!cfg.folders.length){main.innerHTML='<div class="pad"><p>見るフォルダが、まだ選ばれていません。</p><p><button class="btn main" id="gof">フォルダを選ぶ</button></p></div>';$('#gof').onclick=()=>go('folders');$('#count').textContent='';return}
+  if(loading){main.innerHTML='<p class="pad note">読み込み中…（枚数が多いと、少しかかります）</p>';return}
+  if(loadErr){main.innerHTML='<div class="pad"><p>失敗しました：'+esc(loadErr)+'</p><p><button class="btn" id="retry">もう一度</button> <button class="btn" id="gos">設定へ</button></p></div>';$('#retry').onclick=loadAll;$('#gos').onclick=()=>go('settings');return}
+  if(!loaded){loadAll();return}
+  const inF=items.filter(i=>ffolder<0||i.fi===ffolder);
+  const nImg=inF.filter(i=>!i.v).length, nVid=inF.length-nImg;
+  $('#count').textContent='写真 '+nImg+'枚・動画 '+nVid+'本';
+  list=inF.filter(i=>ftype==='all'||(ftype==='v'?i.v:!i.v));
+  const chips='<div class="chips">'+
+    [['all','すべて'],['i','写真'],['v','動画']].map(a=>'<button data-ty="'+a[0]+'" aria-pressed="'+(ftype===a[0])+'">'+a[1]+'</button>').join('')+
+    (cfg.folders.length>1?'<button data-fo="-1" aria-pressed="'+(ffolder<0)+'">全フォルダ</button>'+cfg.folders.map((p,i)=>'<button data-fo="'+i+'" aria-pressed="'+(ffolder===i)+'">'+esc(p.split('/').pop()||p)+'</button>').join(''):'')+'</div>';
+  const part=list.slice(0,shown);
+  main.innerHTML=chips+'<div class="grid">'+part.map((t,i)=>'<button class="c" data-i="'+i+'" aria-label="'+(t.v?'動画':'写真')+'"><span></span>'+(t.v?'<span class="badge">▶</span>':'')+'</button>').join('')+'</div>'+
+    (list.length>shown?'<div class="pad"><button class="btn" id="more">もっと見る（残り '+(list.length-shown)+'）</button></div>':'')+
+    (list.length?'':'<p class="pad note">該当するものがありません。</p>');
+  main.querySelectorAll('[data-ty]').forEach(b=>b.onclick=()=>{ftype=b.dataset.ty;shown=60;render()});
+  main.querySelectorAll('[data-fo]').forEach(b=>b.onclick=()=>{ffolder=+b.dataset.fo;shown=60;render()});
+  main.querySelectorAll('.c').forEach(b=>b.onclick=()=>openViewer(+b.dataset.i));
+  const m=$('#more');if(m)m.onclick=()=>{shown+=60;render()};
+  fillThumbs(part);
+}
+async function fillThumbs(part){
+  const need=part.filter(t=>!thumbs.has(t.id)).map(t=>t.id);
+  const apply=()=>main.querySelectorAll('.c').forEach(b=>{const t=list[+b.dataset.i];const u=t&&thumbs.get(t.id);if(u&&!b.querySelector('img'))b.firstChild.outerHTML='<img loading="lazy" alt="" src="'+u+'">'});
+  apply();
+  for(let i=0;i<need.length;i+=50){
+    try{
+      const r=await api('getthumblinks',{fileids:need.slice(i,i+50).join(','),size:'256x256',crop:1});
+      (r.thumbs||[]).forEach(t=>{if(t.thumb)thumbs.set(t.fileid,t.thumb)});
+      apply();
+    }catch(e){}
   }
 }
-async function open(id){
-  const r=await api('getfilelink',{fileid:id});
-  $('#big').src=r._raw?r.path:`https://${r.hosts[0]}${r.path}`;$('#viewer').style.display='flex';
+
+// ---------- 全画面で見る ----------
+let vi=0;
+async function openViewer(i){
+  vi=i;const t=list[i];if(!t)return;
+  const v=$('#viewer');v.style.display='flex';
+  v.querySelectorAll('img,video').forEach(e=>e.remove());
+  $('#vt').textContent=(i+1)+' / '+list.length+'　'+t.name;
+  try{
+    const r=await api('getfilelink',{fileid:t.id});
+    if(vi!==i)return;
+    const url='https://'+r.hosts[0]+r.path;
+    const el=document.createElement(t.v?'video':'img');
+    el.src=url;if(t.v){el.controls=true;el.playsInline=true;el.autoplay=true}
+    v.insertBefore(el,v.firstChild);
+  }catch(e){$('#vt').textContent='読み込めませんでした：'+e.message}
 }
-$('#viewer').onclick=()=>{$('#viewer').style.display='none';$('#big').src=''};
-$('#back').onclick=()=>{path=path.split('/').slice(0,-1).join('/')||'';if(cfg.folder&&path.length<cfg.folder.length)path=cfg.folder;show()};
-$('#gear').onclick=()=>settings();
-function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
-function settings(){
-  setTitle('設定');$('#back').hidden=true;
-  main.innerHTML=`<p class="note">指定中のフォルダ：${esc(cfg.folder||'なし')}</p>
-  <p>pCloud アプリの Client ID<br><input id="cid" value="${esc(cfg.clientId)}"></p>
-  <p><button id="go">pCloudにログインする</button> <button id="clr">指定フォルダを解除</button> <button id="close">閉じる</button></p>
-  <p class="note">ログインは pCloud の画面で行います。パスワードは、このページでは入力しません。</p>`;
+function closeViewer(){const v=$('#viewer');v.querySelectorAll('video').forEach(e=>e.pause());v.querySelectorAll('img,video').forEach(e=>e.remove());v.style.display='none'}
+$('#vx').onclick=closeViewer;
+$('#vp').onclick=()=>{if(vi>0)openViewer(vi-1)};
+$('#vn').onclick=()=>{if(vi<list.length-1)openViewer(vi+1)};
+document.addEventListener('keydown',e=>{if($('#viewer').style.display==='flex'){if(e.key==='Escape')closeViewer();if(e.key==='ArrowLeft')$('#vp').click();if(e.key==='ArrowRight')$('#vn').click()}});
+
+// ---------- フォルダ（見るフォルダの選択） ----------
+async function renderFolders(){
+  $('#title').textContent=browse==='/'?'フォルダ':browse.split('/').pop();
+  $('#count').textContent='';
+  main.innerHTML='<p class="pad note">読み込み中…</p>';
+  try{
+    const r=await api('listfolder',{path:browse,nofiles:1});
+    const fs=(r.metadata.contents||[]).filter(f=>f.isfolder).sort((a,b)=>a.name.localeCompare(b.name));
+    const full=n=>(browse==='/'?'':browse)+'/'+n;
+    main.innerHTML=(browse!=='/'?'<div class="row"><button class="btn" id="up">‹ 上へ</button><span class="note">チェックしたフォルダの下は、全部「写真」に並びます</span></div>':'<p class="pad note">見たいフォルダに、チェックを付けます。チェックしたフォルダの下は、全部「写真」に並びます。</p>')+
+      fs.map((f,i)=>'<div class="row"><input type="checkbox" data-c="'+i+'" aria-label="写真に含める"'+(cfg.folders.includes(full(f.name))?' checked':'')+'><button class="name" data-o="'+i+'">📁 '+esc(f.name)+'</button></div>').join('')+
+      (fs.length?'':'<p class="pad note">これより下に、フォルダはありません。</p>');
+    const up=$('#up');if(up)up.onclick=()=>{browse=browse.split('/').slice(0,-1).join('/')||'/';renderFolders()};
+    main.querySelectorAll('[data-o]').forEach(b=>b.onclick=()=>{browse=full(fs[+b.dataset.o].name);renderFolders()});
+    main.querySelectorAll('[data-c]').forEach(b=>b.onchange=()=>{
+      const p=full(fs[+b.dataset.c].name);
+      cfg.folders=b.checked?cfg.folders.concat(p):cfg.folders.filter(x=>x!==p);
+      S.set('folders',JSON.stringify(cfg.folders));loaded=false;ffolder=-1;
+    });
+  }catch(e){main.innerHTML='<div class="pad"><p>失敗しました：'+esc(e.message)+'</p></div>'}
+}
+
+// ---------- 設定 ----------
+function renderSettings(){
+  $('#title').textContent='設定';$('#count').textContent='';
+  main.innerHTML='<div class="pad"><p class="note">見るフォルダ：<br>'+(cfg.folders.length?cfg.folders.map(esc).join('<br>'):'なし')+'</p>'+
+    '<p>pCloud アプリの Client ID<br><input type="text" id="cid" value="'+esc(cfg.clientId)+'"></p>'+
+    '<p><button class="btn main" id="go">pCloudにログインする</button> <button class="btn" id="out">ログアウト</button></p>'+
+    '<p><button class="btn" id="clr">見るフォルダを全部解除</button></p>'+
+    '<p class="note">ログインは pCloud の画面で行います。パスワードは、このページでは入力しません。ログイン情報は、この端末のブラウザの中にだけ残ります。</p></div>';
   $('#go').onclick=()=>{cfg.clientId=$('#cid').value.trim();S.set('cid',cfg.clientId);login()};
-  $('#clr').onclick=()=>{cfg.folder='';S.set('folder','');settings()};
-  $('#close').onclick=()=>{path=cfg.folder;show()};
+  $('#out').onclick=logout;
+  $('#clr').onclick=()=>{cfg.folders=[];S.set('folders','[]');loaded=false;renderSettings()};
 }
-path=cfg.folder;show();
+
+// ---------- 全体 ----------
+function render(){
+  setNav();
+  if(!cfg.token&&tab!=='settings'){
+    $('#title').textContent='ログイン';$('#count').textContent='';
+    main.innerHTML='<div class="pad"><p>pCloudにログインします。</p><p><button class="btn main" id="go2">pCloudにログインする</button></p><p class="note">ログインは pCloud の画面で行います。パスワードは、このページでは入力しません。</p></div>';
+    $('#go2').onclick=login;return;
+  }
+  if(tab==='photos')renderPhotos();
+  else if(tab==='folders')renderFolders();
+  else renderSettings();
+}
+tab=cfg.folders.length?'photos':'folders';
+render();
 </script>
 </body>
 </html>
