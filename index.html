@@ -44,6 +44,8 @@ input[type=text]{font:inherit;width:100%;padding:8px;border:1px solid var(--line
 #viewer .x{top:calc(12px + env(safe-area-inset-top,0px));right:12px}
 #viewer .p{left:8px;top:50%}
 #viewer .n{right:8px;top:50%}
+#viewer .acts{position:absolute;top:calc(12px + env(safe-area-inset-top,0px));left:12px;display:flex;gap:8px}
+#viewer .acts button{background:#0008;color:#fff;border:0;border-radius:999px;height:44px;padding:0 16px;font-size:14px}
 #viewer .t{position:absolute;bottom:calc(10px + env(safe-area-inset-bottom,0px));left:0;right:0;text-align:center;color:#fff;font-size:12px}
 </style>
 </head>
@@ -55,7 +57,7 @@ input[type=text]{font:inherit;width:100%;padding:8px;border:1px solid var(--line
   <button id="t-folders">フォルダ</button>
   <button id="t-settings">設定</button>
 </nav>
-<div id="viewer"><button class="x" id="vx" aria-label="閉じる">✕</button><button class="p" id="vp" aria-label="前へ">‹</button><button class="n" id="vn" aria-label="次へ">›</button><div class="t" id="vt"></div></div>
+<div id="viewer"><button class="x" id="vx" aria-label="閉じる">✕</button><button class="p" id="vp" aria-label="前へ">‹</button><button class="n" id="vn" aria-label="次へ">›</button><div class="t" id="vt"></div><div class="acts"><button id="vs">保存</button><button id="vd">ゴミ箱</button></div></div>
 
 <script>
 // ---------- 保存（このブラウザの中だけ） ----------
@@ -182,6 +184,44 @@ async function openViewer(i){
 }
 function closeViewer(){const v=$('#viewer');v.querySelectorAll('video').forEach(e=>e.pause());v.querySelectorAll('img,video').forEach(e=>e.remove());v.style.display='none'}
 $('#vx').onclick=closeViewer;
+
+// ---------- 保存（iPhone：共有画面 → 画像を保存／PC：ダウンロード） ----------
+const PROXY='https://pcloud-photos-proxy.cyber-skiep.workers.dev/video';
+const isIOS=/iP(hone|ad|od)/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+let ready=null; // iPhoneで、読み込みに時間がかかり共有を断られたときの、取り置き
+async function saveCur(){
+  const t=list[vi];if(!t)return;const b=$('#vs');
+  try{
+    let file=ready&&ready.id===t.id?ready.file:null;
+    if(!file){
+      b.textContent='…';
+      const res=await fetch(PROXY+'?host='+encodeURIComponent(cfg.host)+'&token='+encodeURIComponent(cfg.token)+'&fileid='+t.id);
+      if(!res.ok)throw new Error(await res.text());
+      const blob=await res.blob();
+      file=new File([blob],t.name,{type:blob.type||(t.v?'video/quicktime':'image/jpeg')});
+    }
+    if(isIOS&&navigator.canShare&&navigator.canShare({files:[file]})){
+      try{await navigator.share({files:[file]});ready=null;b.textContent='保存'}
+      catch(e){if(e.name==='NotAllowedError'){ready={id:t.id,file};b.textContent='もう一度押す'}else{b.textContent='保存'}}
+    }else{
+      const a=document.createElement('a');a.href=URL.createObjectURL(file);a.download=t.name;document.body.appendChild(a);a.click();
+      setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},5000);b.textContent='保存';
+    }
+  }catch(e){b.textContent='保存';$('#vt').textContent='保存できませんでした：'+e.message}
+}
+$('#vs').onclick=saveCur;
+
+// ---------- ゴミ箱（pCloudのゴミ箱へ。あとで戻せる） ----------
+async function trashCur(){
+  const t=list[vi];if(!t)return;
+  if(!confirm('「'+t.name+'」を、pCloudのゴミ箱へ移しますか？（pCloudのゴミ箱から戻せます）'))return;
+  try{
+    await api('deletefile',{fileid:t.id});
+    items=items.filter(x=>x.id!==t.id);list=list.filter(x=>x.id!==t.id);
+    closeViewer();render();
+  }catch(e){$('#vt').textContent='消せませんでした：'+e.message}
+}
+$('#vd').onclick=trashCur;
 $('#vp').onclick=()=>{if(vi>0)openViewer(vi-1)};
 $('#vn').onclick=()=>{if(vi<list.length-1)openViewer(vi+1)};
 document.addEventListener('keydown',e=>{if($('#viewer').style.display==='flex'){if(e.key==='Escape')closeViewer();if(e.key==='ArrowLeft')$('#vp').click();if(e.key==='ArrowRight')$('#vn').click()}});
