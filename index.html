@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="ja">
 <head>
+<meta name="referrer" content="no-referrer">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -79,7 +80,7 @@ async function api(method,params){
   const u=new URL('https://'+cfg.host+'/'+method);
   u.searchParams.set('access_token',cfg.token);
   for(const k in params)u.searchParams.set(k,params[k]);
-  const r=await (await fetch(u)).json();
+  const r=await (await fetch(u,{referrerPolicy:'no-referrer'})).json();
   if(r.result!==0){const e=new Error(r.error||('error '+r.result));e.code=r.result;throw e}
   return r;
 }
@@ -159,7 +160,7 @@ async function openViewer(i){
     if(vi!==i)return;
     const url='https://'+r.hosts[0]+r.path;
     const el=document.createElement(t.v?'video':'img');
-    el.src=url;if(t.v){el.controls=true;el.playsInline=true;el.autoplay=true}
+    el.referrerPolicy='no-referrer';el.src=url;if(t.v){el.controls=true;el.playsInline=true;el.autoplay=true}
     v.insertBefore(el,v.firstChild);
   }catch(e){$('#vt').textContent='読み込めませんでした：'+e.message}
 }
