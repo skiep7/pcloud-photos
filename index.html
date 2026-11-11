@@ -155,7 +155,7 @@ async function openViewer(i){
   v.querySelectorAll('img,video').forEach(e=>e.remove());
   $('#vt').textContent=(i+1)+' / '+list.length+'　'+t.name;
   try{
-    const r=t.v?await api('getfilelink',{fileid:t.id}):await api('getthumblink',{fileid:t.id,size:'2048x2048',type:'jpg'});
+    const r=t.v?await api('getfilelink',{fileid:t.id}):await api('getthumblink',{fileid:t.id,size:'2048x1024',type:'jpg'});
     if(vi!==i)return;
     const url='https://'+r.hosts[0]+r.path;
     const el=document.createElement(t.v?'video':'img');
