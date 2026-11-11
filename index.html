@@ -158,15 +158,8 @@ async function openViewer(i){
   try{
     let url;
     if(t.v){
-      const errs=[];
-      const tries=[
-        ['getvideolinks',r=>{const v=(r.variants||[]).find(x=>x.hosts&&x.path);return v&&'https://'+v.hosts[0]+v.path}],
-        ['gethlslink',r=>r.hosts&&'https://'+r.hosts[0]+r.path],
-        ['getvideolink',r=>r.hosts&&'https://'+r.hosts[0]+r.path],
-        ['getfilelink',r=>r.hosts&&'https://'+r.hosts[0]+r.path],
-      ];
-      for(const [m,f] of tries){try{url=f(await api(m,{fileid:t.id}));if(url)break;errs.push(m+':空')}catch(e){errs.push(m+':'+e.message)}}
-      if(!url)throw new Error(errs.join(' / '));
+      // pCloudは、よそのサイトからの動画リンクを断るので、中継役（Cloudflare Worker）を通す
+      url='https://pcloud-photos-proxy.cyber-skiep.workers.dev/video?host='+encodeURIComponent(cfg.host)+'&token='+encodeURIComponent(cfg.token)+'&fileid='+t.id;
     }else{
       const r=await api('getthumbslinks',{fileids:t.id,size:'2048x1024',type:'jpg'});
       const th=(r.thumbs||[])[0];
