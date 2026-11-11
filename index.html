@@ -140,8 +140,8 @@ async function fillThumbs(part){
   apply();
   for(let i=0;i<need.length;i+=50){
     try{
-      const r=await api('getthumblinks',{fileids:need.slice(i,i+50).join(','),size:'256x256',crop:1});
-      (r.thumbs||[]).forEach(t=>{if(t.thumb)thumbs.set(t.fileid,t.thumb)});
+      const r=await api('getthumbslinks',{fileids:need.slice(i,i+50).join(','),size:'256x256',crop:1,type:'jpg'});
+      (r.thumbs||[]).forEach(t=>{if(t.result===0&&t.hosts&&t.hosts.length)thumbs.set(t.fileid,'https://'+t.hosts[0]+t.path)});
       apply();
     }catch(e){}
   }
@@ -155,7 +155,7 @@ async function openViewer(i){
   v.querySelectorAll('img,video').forEach(e=>e.remove());
   $('#vt').textContent=(i+1)+' / '+list.length+'　'+t.name;
   try{
-    const r=await api('getfilelink',{fileid:t.id});
+    const r=t.v?await api('getfilelink',{fileid:t.id}):await api('getthumblink',{fileid:t.id,size:'2048x2048',type:'jpg'});
     if(vi!==i)return;
     const url='https://'+r.hosts[0]+r.path;
     const el=document.createElement(t.v?'video':'img');
