@@ -132,7 +132,13 @@ function renderPhotos(){
   main.querySelectorAll('[data-ty]').forEach(b=>b.onclick=()=>{ftype=b.dataset.ty;shown=60;render()});
   main.querySelectorAll('[data-fo]').forEach(b=>b.onclick=()=>{ffolder=+b.dataset.fo;shown=60;render()});
   main.querySelectorAll('.c').forEach(b=>b.onclick=()=>openViewer(+b.dataset.i));
-  const m=$('#more');if(m)m.onclick=()=>{shown+=60;render()};
+  const m=$('#more');
+  if(m){
+    m.onclick=()=>{shown+=60;render()};
+    // 下までスクロールしたら、自動で続きを読む
+    const io=new IntersectionObserver(es=>{if(es.some(e=>e.isIntersecting)&&tab==='photos'){io.disconnect();shown+=60;render()}},{rootMargin:'600px'});
+    io.observe(m);
+  }
   fillThumbs(part);
 }
 async function fillThumbs(part){
