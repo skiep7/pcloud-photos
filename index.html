@@ -39,7 +39,11 @@ button{font:inherit}
 #pm .info{font-size:14px;line-height:1.7;word-break:break-all;white-space:pre-wrap;margin:4px 0 8px}
 #cmp{position:fixed;inset:0;background:var(--bg);display:none;flex-direction:column;z-index:60;padding-top:env(safe-area-inset-top,0px)}
 #cmp .ctop{display:flex;align-items:center;gap:10px;padding:8px 12px}
-#cmp .cpan{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:0 4px}
+#cmp .gl{position:absolute;inset:0;pointer-events:none;z-index:3}
+#cmp .gl i{position:absolute;left:4px;right:4px;border-top:1px dashed #ff3b30cc}
+#cmp .gl b{position:absolute;top:0;bottom:0;border-left:1px dashed #ff3b3099}
+#cmp #cgl[aria-pressed="true"]{background:var(--acc);color:var(--accfg)}
+#cmp .cpan{position:relative;display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:0 4px}
 #cmp .pn{position:relative;aspect-ratio:3/4;overflow:hidden;background:var(--panel);touch-action:none}
 #cmp .pn img{position:absolute;left:50%;top:50%;transform-origin:center;pointer-events:none;max-width:none}
 #cmp .lb{position:absolute;left:6px;top:6px;z-index:2;background:#000a;color:#fff;font-size:12px;padding:1px 8px;border-radius:999px}
@@ -277,7 +281,7 @@ async function openCompare(t){
     '<div class="cpan"><div class="pn" data-p="0"><span class="lb">前回</span></div><div class="pn" data-p="1"><span class="lb">今回</span><div class="ph">↓ 今回の写真を撮る</div></div></div>'+
     '<div class="cctl"><input type="text" id="clab" placeholder="例：施術3回目">'+
     '<div class="cbtns"><button class="btn main" id="ccam">アプリで撮る（重ねて）</button><button class="btn" id="cpick">iPhoneのカメラ・写真から</button></div>'+
-    '<div class="cbtns"><button class="btn" id="crs">位置を戻す</button><button class="btn main" id="csave">1枚にして保存</button></div>'+
+    '<div class="cbtns"><button class="btn" id="cgl">補助線</button><button class="btn" id="crs">位置を戻す</button><button class="btn main" id="csave">1枚にして保存</button></div>'+
     '<p class="note">写真は、1本指で動かす・2本指で拡大縮小できます。</p><input type="file" accept="image/*" id="cfile" hidden></div>';
   cmp.before=null;cmp.after=null;cmp.bt=t.t;cmp.pan=[{x:0,y:0,s:1},{x:0,y:0,s:1}];
   $('#clab').value=cmp.label;$('#clab').oninput=e=>cmp.label=e.target.value;
@@ -285,6 +289,11 @@ async function openCompare(t){
   $('#cpick').onclick=()=>$('#cfile').click();
   $('#cfile').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{setAfter(await blobImg(f))}catch(er){$('#cmsg').textContent=er.message}};
   $('#ccam').onclick=openCam;
+  const gl=document.createElement('div');gl.className='gl';
+  gl.innerHTML=[1,2,3,4,5].map(i=>'<i style="top:'+(i*100/6)+'%"></i>').join('')+'<b style="left:25%"></b><b style="left:75%"></b>';
+  c.querySelector('.cpan').appendChild(gl);
+  const gOn=S.get('guide','1')==='1';gl.style.display=gOn?'block':'none';$('#cgl').setAttribute('aria-pressed',gOn);
+  $('#cgl').onclick=()=>{const on=gl.style.display==='none';gl.style.display=on?'block':'none';$('#cgl').setAttribute('aria-pressed',on);S.set('guide',on?'1':'0')};
   $('#crs').onclick=()=>{cmp.pan=[{x:0,y:0,s:1},{x:0,y:0,s:1}];drawPanels()};
   $('#csave').onclick=saveCompare;
   c.querySelectorAll('.pn').forEach(p=>attachPan(p,+p.dataset.p));
