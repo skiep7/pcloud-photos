@@ -51,7 +51,7 @@ button{font:inherit}
 #cmp .cctl{padding:10px 12px calc(12px + env(safe-area-inset-bottom,0px));overflow-y:auto}
 #cmp .cbtns{display:flex;gap:8px;margin-top:8px}#cmp .cbtns .btn{flex:1;padding:10px 6px}
 #cam{position:fixed;inset:0;background:#000;display:none;z-index:70}
-#cam video,#cam #cov{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+#cam video,#cam #cov{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
 #cam #cov{pointer-events:none;transform-origin:center}
 #cam .cbar{position:absolute;left:0;right:0;bottom:0;padding:12px 16px calc(16px + env(safe-area-inset-bottom,0px));display:flex;align-items:center;justify-content:space-between;gap:10px;background:#0006}
 #cam #shot{width:70px;height:70px;border-radius:50%;border:5px solid #fff;background:#fff6}
@@ -277,7 +277,7 @@ async function openCompare(t){
   let c=$('#cmp');
   if(!c){c=document.createElement('div');c.id='cmp';document.body.appendChild(c)}
   c.style.display='flex';
-  c.innerHTML='<div class="ctop"><button class="btn" id="cx">✕ 閉じる</button><span class="note">版 11/19-f</span><span class="note" id="cmsg">前回の写真を読み込み中…</span></div>'+
+  c.innerHTML='<div class="ctop"><button class="btn" id="cx">✕ 閉じる</button><span class="note">版 11/19-g</span><span class="note" id="cmsg">前回の写真を読み込み中…</span></div>'+
     '<div class="cpan"><div class="pn" data-p="0"><span class="lb">前回</span></div><div class="pn" data-p="1"><span class="lb">今回</span><div class="ph">↓ 今回の写真を撮る</div></div></div>'+
     '<div class="cctl"><input type="text" id="clab" placeholder="例：施術3回目">'+
     '<div class="cbtns"><button class="btn main" id="ccam">アプリで撮る（重ねて）</button><button class="btn" id="cpick">iPhoneのカメラ・写真から</button></div>'+
@@ -422,7 +422,7 @@ async function openCam(){
   $('#shot').onclick=()=>{
     const v=w.querySelector('video'),vw=v.videoWidth,vh=v.videoHeight;if(!vw)return;
     // 画面に見えている範囲（cover）だけを切り出す＝重ねて合わせた見え方のまま
-    const W=w.clientWidth,H=w.clientHeight,s=Math.max(W/vw,H/vh),cw=W/s,ch=H/s;
+    const cw=vw,ch=vh; // 映像の全体をそのまま撮る（切り取らない）
     const cv=document.createElement('canvas');cv.width=Math.round(cw);cv.height=Math.round(ch);
     cv.getContext('2d').drawImage(v,(vw-cw)/2,(vh-ch)/2,cw,ch,0,0,cv.width,cv.height);
     cv.toBlob(async b=>{closeCam();setAfter(await blobImg(b))},'image/jpeg',0.95);
