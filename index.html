@@ -51,7 +51,8 @@ button{font:inherit}
 #cmp .cctl{padding:10px 12px calc(12px + env(safe-area-inset-bottom,0px));overflow-y:auto}
 #cmp .cbtns{display:flex;gap:8px;margin-top:8px}#cmp .cbtns .btn{flex:1;padding:10px 6px}
 #cam{position:fixed;inset:0;background:#000;display:none;z-index:70}
-#cam video,#cam #cov{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+#cam .cfr video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+#cam .cfr #cov{position:absolute;left:50%;top:50%;max-width:none}
 #cam #cov{pointer-events:none;transform-origin:center}
 #cam .cbar{position:absolute;left:0;right:0;bottom:0;padding:12px 16px calc(16px + env(safe-area-inset-bottom,0px));display:flex;align-items:center;justify-content:space-between;gap:10px;background:#0006}
 #cam #shot{width:70px;height:70px;border-radius:50%;border:5px solid #fff;background:#fff6}
@@ -277,11 +278,11 @@ async function openCompare(t){
   let c=$('#cmp');
   if(!c){c=document.createElement('div');c.id='cmp';document.body.appendChild(c)}
   c.style.display='flex';
-  c.innerHTML='<div class="ctop"><button class="btn" id="cx">✕ 閉じる</button><span class="note">版 11/19-g</span><span class="note" id="cmsg">前回の写真を読み込み中…</span></div>'+
+  c.innerHTML='<div class="ctop"><button class="btn" id="cx">✕ 閉じる</button><span class="note">版 11/19-h</span><span class="note" id="cmsg">前回の写真を読み込み中…</span></div>'+
     '<div class="cpan"><div class="pn" data-p="0"><span class="lb">前回</span></div><div class="pn" data-p="1"><span class="lb">今回</span><div class="ph">↓ 今回の写真を撮る</div></div></div>'+
     '<div class="cctl"><input type="text" id="clab" placeholder="例：施術3回目">'+
     '<div class="cbtns"><button class="btn main" id="ccam">アプリで撮る（重ねて）</button><button class="btn" id="cpick">iPhoneのカメラ・写真から</button></div>'+
-    '<div class="cbtns"><button class="btn" id="cgl">補助線</button><button class="btn" id="crs">位置を戻す</button><button class="btn main" id="csave">1枚にして送る・保存</button></div>'+
+    '<div class="cbtns"><button class="btn" id="cgl">補助線</button><button class="btn" id="cau">顔で合わせる</button><button class="btn" id="crs">位置を戻す</button><button class="btn main" id="csave">1枚にして送る・保存</button></div>'+
     '<p class="note">写真は、1本指で動かす・2本指で拡大縮小できます。</p><input type="file" accept="image/*" id="cfile" hidden></div>';
   cmp.before=null;cmp.after=null;cmp.bt=t.t;cmp.pan=[{x:0,y:0,s:1},{x:0,y:0,s:1}];
   $('#clab').value=cmp.label;$('#clab').oninput=e=>{cmp.label=e.target.value;cmp.pending=null};
@@ -294,6 +295,7 @@ async function openCompare(t){
   c.querySelector('.cpan').appendChild(gl);
   const gOn=S.get('guide','1')==='1';gl.style.display=gOn?'block':'none';$('#cgl').setAttribute('aria-pressed',gOn);
   $('#cgl').onclick=()=>{const on=gl.style.display==='none';gl.style.display=on?'block':'none';$('#cgl').setAttribute('aria-pressed',on);S.set('guide',on?'1':'0')};
+  $('#cau').onclick=autoAlign;
   $('#crs').onclick=()=>{cmp.pan=[{x:0,y:0,s:1},{x:0,y:0,s:1}];drawPanels()};
   $('#csave').onclick=saveCompare;
   c.querySelectorAll('.pn').forEach(p=>attachPan(p,+p.dataset.p));
@@ -307,9 +309,9 @@ async function openCompare(t){
     cmp.before=im;
   }catch(e){try{cmp.before=await cmp.clean}catch(e2){$('#cmsg').textContent='前回の写真を読めませんでした：'+e2.message;return}}
   $('#cmsg').textContent='前回：'+fmtT(t.t);drawPanels();
-  const ov=$('#cov');if(ov)ov.src=cmp.before.src;
+  if(cmp.ovDraw)cmp.ovDraw();
 }
-function setAfter(im){cmp.after=im;cmp.pan[1]={x:0,y:0,s:1};const ph=document.querySelector('#cmp .ph');if(ph)ph.remove();drawPanels()}
+function setAfter(im){cmp.after=im;cmp.pan[1]={x:0,y:0,s:1};const ph=document.querySelector('#cmp .ph');if(ph)ph.remove();drawPanels();autoAlign()}
 function drawPanels(){
   cmp.pending=null;cmp.saved='';
   document.querySelectorAll('#cmp .pn').forEach(p=>{
@@ -385,26 +387,22 @@ let camStream=null;
 async function openCam(){
   if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){alert('このブラウザでは、アプリの中のカメラを使えません');return}
   let w=$('#cam');if(!w){w=document.createElement('div');w.id='cam';document.body.appendChild(w)}
-  w.innerHTML='<video playsinline autoplay muted></video><img alt="" id="cov"><div class="cbar"><button class="btn" id="camx">やめる</button>'+
+  w.innerHTML='<div class="cfr"><video playsinline autoplay muted></video><img alt="" id="cov"></div><div class="cbar"><button class="btn" id="camx">やめる</button>'+
     '<label class="note" style="color:#fff">重ね <input type="range" id="cop" min="0" max="100" value="40"></label><button id="shot" aria-label="撮る"></button></div>';
   w.style.display='block';
+  // 枠：比較画面の枠と同じ形。左で合わせた前回の写真を、そのままの見え方で重ねる
+  const pn0=document.querySelector('#cmp .pn'),pw=pn0.clientWidth,ph=pn0.clientHeight;
+  const fr=w.querySelector('.cfr'),bh=w.querySelector('.cbar').offsetHeight,AW=w.clientWidth,AH=w.clientHeight-bh;
+  let fw=AW,fh=AW*ph/pw;if(fh>AH){fh=AH;fw=AH*pw/ph}
+  fr.style.cssText='position:absolute;left:'+(AW-fw)/2+'px;top:'+(AH-fh)/2+'px;width:'+fw+'px;height:'+fh+'px;overflow:hidden;outline:2px solid #fff8';
   const wt=document.createElement('div');wt.textContent='カメラを起動中…';wt.style.cssText='position:absolute;top:45%;left:0;right:0;text-align:center;color:#fff';w.appendChild(wt);
   w.querySelector('video').addEventListener('playing',()=>wt.remove(),{once:true});
-  if(cmp.before)$('#cov').src=cmp.before.src;$('#cov').style.opacity=.4;
-  $('#cop').oninput=e=>$('#cov').style.opacity=e.target.value/100;
-  // 前回の写真（重ね）を、1本指で移動・2本指で拡大縮小。最初は比較画面で合わせた位置から
-  const pn0=document.querySelector('#cmp .pn'),rk=pn0&&pn0.clientWidth?w.clientWidth/pn0.clientWidth:1,q0=cmp.pan[0];
-  const oq={x:q0.x*rk,y:q0.y*rk,s:q0.s};
-  const ovd=()=>{$('#cov').style.transform='translate('+oq.x+'px,'+oq.y+'px) scale('+oq.s+')'};ovd();
-  const gz=document.createElement('div');gz.style.cssText='position:absolute;inset:0;touch-action:none';w.insertBefore(gz,w.querySelector('.cbar'));
-  {const pts=new Map();let st=null;
-   const snap=()=>{const a=[...pts.values()];st={x:oq.x,y:oq.y,s:oq.s,cx:a.reduce((m,v)=>m+v.x,0)/a.length,cy:a.reduce((m,v)=>m+v.y,0)/a.length,d:a.length>1?Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y):0}};
-   gz.addEventListener('pointerdown',e=>{gz.setPointerCapture(e.pointerId);pts.set(e.pointerId,{x:e.clientX,y:e.clientY});snap()});
-   gz.addEventListener('pointermove',e=>{if(!pts.has(e.pointerId))return;pts.set(e.pointerId,{x:e.clientX,y:e.clientY});
-     const a=[...pts.values()],cx=a.reduce((m,v)=>m+v.x,0)/a.length,cy=a.reduce((m,v)=>m+v.y,0)/a.length;
-     oq.x=st.x+(cx-st.cx);oq.y=st.y+(cy-st.cy);if(a.length>1&&st.d)oq.s=Math.min(5,Math.max(0.3,st.s*Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y)/st.d));ovd()});
-   const up=e=>{pts.delete(e.pointerId);if(pts.size)snap()};gz.addEventListener('pointerup',up);gz.addEventListener('pointercancel',up);
-   gz.addEventListener('wheel',e=>{e.preventDefault();oq.s=Math.min(5,Math.max(0.3,oq.s*(e.deltaY<0?1.05:0.95)));ovd()},{passive:false});}
+  const ov=$('#cov'),r=fw/pw;ov.style.opacity=.4;
+  cmp.ovDraw=()=>{const im=cmp.before;if(!im||!$('#cov'))return;ov.src=im.src;const s0=Math.max(fw/im.naturalWidth,fh/im.naturalHeight),q=cmp.pan[0];
+    ov.style.width=im.naturalWidth*s0+'px';ov.style.height=im.naturalHeight*s0+'px';
+    ov.style.transform='translate(-50%,-50%) translate('+q.x*r+'px,'+q.y*r+'px) scale('+q.s+')'};
+  cmp.ovDraw();
+  $('#cop').oninput=e=>ov.style.opacity=e.target.value/100;
   $('#camx').onclick=closeCam;
   // 外カメラ（environment）／インカメラ（user）を切り替える。最後に使ったほうを覚える
   const fb=document.createElement('button');fb.className='btn';fb.style.cssText='color:#fff;border-color:#fff8';
@@ -421,12 +419,48 @@ async function openCam(){
   if(!await start())return;
   $('#shot').onclick=()=>{
     const v=w.querySelector('video'),vw=v.videoWidth,vh=v.videoHeight;if(!vw)return;
-    // 画面に見えている範囲（cover）だけを切り出す＝重ねて合わせた見え方のまま
-    const cw=vw,ch=vh; // 映像の全体をそのまま撮る（切り取らない）
+    // 枠に見えている範囲だけを撮る＝比較画面の右に、そのままの見え方で入る
+    const s=Math.max(fw/vw,fh/vh),cw=fw/s,ch=fh/s;
     const cv=document.createElement('canvas');cv.width=Math.round(cw);cv.height=Math.round(ch);
     cv.getContext('2d').drawImage(v,(vw-cw)/2,(vh-ch)/2,cw,ch,0,0,cv.width,cv.height);
     cv.toBlob(async b=>{closeCam();setAfter(await blobImg(b))},'image/jpeg',0.95);
   };
+}
+// ---------- 顔で自動の位置合わせ（目の位置と幅を、左の写真にそろえる） ----------
+let flP=null;
+function getFL(){
+  if(!flP){flP=(async()=>{
+    const V='https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14';
+    const vision=await import(V+'/vision_bundle.mjs');
+    const fs=await vision.FilesetResolver.forVisionTasks(V+'/wasm');
+    return vision.FaceLandmarker.createFromOptions(fs,{baseOptions:{modelAssetPath:'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task'},runningMode:'IMAGE',numFaces:1});
+  })();flP.catch(()=>{flP=null})}
+  return flP;
+}
+async function eyes(im){
+  const fl=await getFL(),res=fl.detect(im),L=res.faceLandmarks&&res.faceLandmarks[0];if(!L)return null;
+  const W=im.naturalWidth,H=im.naturalHeight,c=(a,b)=>({x:(L[a].x+L[b].x)/2*W,y:(L[a].y+L[b].y)/2*H});
+  return [c(33,133),c(362,263)];
+}
+async function autoAlign(){
+  if(!cmp.after)return;const m=$('#cmsg');m.textContent='顔を探して合わせています…（初回は少しかかります）';
+  try{
+    const clean=await cmp.clean,be=await eyes(clean),ae=await eyes(cmp.after);
+    if(!be||!ae){m.textContent='顔が見つかりませんでした。手で合わせてください';return}
+    const p=document.querySelector('#cmp .pn'),pw=p.clientWidth,ph=p.clientHeight;
+    const sc=im=>Math.max(pw/im.naturalWidth,ph/im.naturalHeight);
+    const scr=(im,q,pt)=>{const s=sc(im)*q.s;return{x:(pt.x-im.naturalWidth/2)*s+q.x,y:(pt.y-im.naturalHeight/2)*s+q.y}};
+    const A=cmp.after,fit=()=>{
+      const B=be.map(pt=>scr(clean,cmp.pan[0],pt));
+      const db=Math.hypot(B[1].x-B[0].x,B[1].y-B[0].y),da=Math.hypot(ae[1].x-ae[0].x,ae[1].y-ae[0].y),s0a=sc(A),s=db/(da*s0a);
+      const am={x:(ae[0].x+ae[1].x)/2,y:(ae[0].y+ae[1].y)/2},bm={x:(B[0].x+B[1].x)/2,y:(B[0].y+B[1].y)/2};
+      return{s,x:bm.x-(am.x-A.naturalWidth/2)*s0a*s,y:bm.y-(am.y-A.naturalHeight/2)*s0a*s}};
+    let f=fit();
+    // 今回の顔のほうが大きいときは、余白を出さないように、左（前回）を拡大してそろえる
+    if(f.s<1){const k=1/f.s,qb=cmp.pan[0];qb.s*=k;qb.x*=k;qb.y*=k;drawPanels();f=fit()}
+    cmp.pan[1]={x:f.x,y:f.y,s:f.s};drawPanels();
+    m.textContent='顔の位置を合わせました（手で微調整できます）';
+  }catch(e){m.textContent='自動で合わせられませんでした：'+e.message}
 }
 function closeCam(){if(camStream){camStream.getTracks().forEach(t=>t.stop());camStream=null}const w=$('#cam');if(w)w.style.display='none'}
 
