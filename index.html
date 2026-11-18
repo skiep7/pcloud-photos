@@ -281,10 +281,10 @@ async function openCompare(t){
     '<div class="cpan"><div class="pn" data-p="0"><span class="lb">前回</span></div><div class="pn" data-p="1"><span class="lb">今回</span><div class="ph">↓ 今回の写真を撮る</div></div></div>'+
     '<div class="cctl"><input type="text" id="clab" placeholder="例：施術3回目">'+
     '<div class="cbtns"><button class="btn main" id="ccam">アプリで撮る（重ねて）</button><button class="btn" id="cpick">iPhoneのカメラ・写真から</button></div>'+
-    '<div class="cbtns"><button class="btn" id="cgl">補助線</button><button class="btn" id="crs">位置を戻す</button><button class="btn main" id="csave">1枚にして保存</button></div>'+
+    '<div class="cbtns"><button class="btn" id="cgl">補助線</button><button class="btn" id="crs">位置を戻す</button><button class="btn main" id="csave">1枚にして送る・保存</button></div>'+
     '<p class="note">写真は、1本指で動かす・2本指で拡大縮小できます。</p><input type="file" accept="image/*" id="cfile" hidden></div>';
   cmp.before=null;cmp.after=null;cmp.bt=t.t;cmp.pan=[{x:0,y:0,s:1},{x:0,y:0,s:1}];
-  $('#clab').value=cmp.label;$('#clab').oninput=e=>cmp.label=e.target.value;
+  $('#clab').value=cmp.label;$('#clab').oninput=e=>{cmp.label=e.target.value;cmp.pending=null};
   $('#cx').onclick=()=>{c.style.display='none'};
   $('#cpick').onclick=()=>$('#cfile').click();
   $('#cfile').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{setAfter(await blobImg(f))}catch(er){$('#cmsg').textContent=er.message}};
@@ -311,6 +311,7 @@ async function openCompare(t){
 }
 function setAfter(im){cmp.after=im;cmp.pan[1]={x:0,y:0,s:1};const ph=document.querySelector('#cmp .ph');if(ph)ph.remove();drawPanels()}
 function drawPanels(){
+  cmp.pending=null;cmp.saved='';
   document.querySelectorAll('#cmp .pn').forEach(p=>{
     const k=+p.dataset.p, im=k?cmp.after:cmp.before;let el=p.querySelector('img');
     if(!im){if(el)el.remove();return}
@@ -339,6 +340,8 @@ function attachPan(p,k){
 }
 async function saveCompare(){
   if(!cmp.before||!cmp.after){$('#cmsg').textContent='前回と今回の、両方の写真が要ります';return}
+  // 作った画像が残っていれば（iPhoneに一度断られたとき）、作り直さずにすぐ共有する
+  if(cmp.pending)return shareCompare(cmp.pending);
   const p=document.querySelector('#cmp .pn'),pw=p.clientWidth,ph=p.clientHeight;
   const W=900,H=Math.round(W*ph/pw),bar=110,k=W/pw;
   const cv=document.createElement('canvas');cv.width=W*2+12;cv.height=H+bar;const g=cv.getContext('2d');
@@ -357,10 +360,25 @@ async function saveCompare(){
   const blob=await new Promise(r=>cv.toBlob(r,'image/jpeg',0.92));
   const n=new Date(),pad=x=>String(x).padStart(2,'0');
   const file=new File([blob],'before-after_'+n.getFullYear()+pad(n.getMonth()+1)+pad(n.getDate())+'_'+pad(n.getHours())+pad(n.getMinutes())+'.jpg',{type:'image/jpeg'});
+  // pCloudに記録を残す（裏で。共有の画面は待たない）
+  cmp.pending=file;
+  uploadRec(file).then(()=>{cmp.saved='pCloudの「'+REC+'」に記録しました'},e=>{cmp.saved='pCloudへの記録に失敗：'+e.message}).finally(()=>{const m=$('#cmsg');if(m)m.textContent=cmp.saved});
+  return shareCompare(file);
+}
+const REC='Bereju_ビフォーアフター';
+async function uploadRec(file){
+  await api('createfolderifnotexists',{path:'/'+REC});
+  const u=new URL('https://'+cfg.host+'/uploadfile');
+  u.searchParams.set('access_token',cfg.token);u.searchParams.set('path','/'+REC);u.searchParams.set('filename',file.name);u.searchParams.set('nopartial','1');
+  const fd=new FormData();fd.append('file',file,file.name);
+  const r=await (await fetch(u,{method:'POST',body:fd,referrerPolicy:'no-referrer'})).json();
+  if(r.result!==0)throw new Error(r.error||('error '+r.result));
+}
+async function shareCompare(file){
   if(navigator.canShare&&navigator.canShare({files:[file]})){
-    try{await navigator.share({files:[file]});$('#cmsg').textContent='保存の画面を出しました（「画像を保存」で写真へ）'}
-    catch(e){$('#cmsg').textContent=e.name==='NotAllowedError'?'もう一度「1枚にして保存」を押してください':'保存をやめました'}
-  }else{const a=document.createElement('a');a.href=URL.createObjectURL(file);a.download=file.name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},5000)}
+    try{await navigator.share({files:[file]});cmp.pending=null;$('#cmsg').textContent=cmp.saved||'送りました'}
+    catch(e){$('#cmsg').textContent=e.name==='NotAllowedError'?'もう一度「1枚にして送る・保存」を押してください':'送るのをやめました（pCloudには記録済み）'}
+  }else{const a=document.createElement('a');a.href=URL.createObjectURL(file);a.download=file.name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},5000);cmp.pending=null}
 }
 // アプリの中のカメラ：前回の写真を半透明で重ねて撮る
 let camStream=null;
