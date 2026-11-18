@@ -279,7 +279,7 @@ async function openCompare(t){
   let c=$('#cmp');
   if(!c){c=document.createElement('div');c.id='cmp';document.body.appendChild(c)}
   c.style.display='flex';
-  c.innerHTML='<div class="ctop"><button class="btn" id="cx">✕ 閉じる</button><span class="note">版 11/19-l</span><span class="note" id="cmsg">前回の写真を読み込み中…</span></div>'+
+  c.innerHTML='<div class="ctop"><button class="btn" id="cx">✕ 閉じる</button><span class="note">版 11/19-m</span><span class="note" id="cmsg">前回の写真を読み込み中…</span></div>'+
     '<div class="cpan"><div class="pn" data-p="0"><span class="lb">前回</span></div><div class="pn" data-p="1"><span class="lb">今回</span><div class="ph">↓ 今回の写真を撮る</div></div></div>'+
     '<div class="cctl"><input type="text" id="clab" placeholder="例：施術3回目">'+
     '<div class="cbtns"><button class="btn main" id="ccam">アプリで撮る（重ねて）</button><button class="btn" id="cpick">iPhoneのカメラ・写真から</button></div>'+
@@ -312,7 +312,7 @@ async function openCompare(t){
   $('#cmsg').textContent='前回：'+fmtT(t.t);drawPanels();
   if(cmp.ovDraw)cmp.ovDraw();
 }
-function setAfter(im){cmp.after=im;cmp.pan[1]={x:0,y:0,s:1};const ph=document.querySelector('#cmp .ph');if(ph)ph.remove();drawPanels();autoAlign()}
+function setAfter(im,pan){cmp.after=im;cmp.pan[1]=pan||{x:0,y:0,s:1};const ph=document.querySelector('#cmp .ph');if(ph)ph.remove();drawPanels();autoAlign()}
 function drawPanels(){
   cmp.pending=null;cmp.saved='';
   document.querySelectorAll('#cmp .pn').forEach(p=>{
@@ -420,11 +420,11 @@ async function openCam(){
   if(!await start())return;
   $('#shot').onclick=()=>{
     const v=w.querySelector('video'),vw=v.videoWidth,vh=v.videoHeight;if(!vw)return;
-    // 枠に見えている範囲だけを撮る＝比較画面の右に、そのままの見え方で入る
-    const s=Math.max(fw/vw,fh/vh),cw=fw/s,ch=fh/s;
-    const cv=document.createElement('canvas');cv.width=Math.round(cw);cv.height=Math.round(ch);
-    cv.getContext('2d').drawImage(v,(vw-cw)/2,(vh-ch)/2,cw,ch,0,0,cv.width,cv.height);
-    cv.toBlob(async b=>{closeCam();setAfter(await blobImg(b))},'image/jpeg',0.95);
+    // 映像の全体を撮る（あとで動かせる余白を残す）。最初は、枠に見えていた範囲がぴったり右の枠に入る拡大率にする
+    const s=Math.max(fw/vw,fh/vh),cw=fw/s;
+    const cv=document.createElement('canvas');cv.width=vw;cv.height=vh;cv.getContext('2d').drawImage(v,0,0);
+    const s0=Math.max(pw/vw,ph/vh),init={x:0,y:0,s:(pw/cw)/s0};
+    cv.toBlob(async b=>{closeCam();setAfter(await blobImg(b),init)},'image/jpeg',0.95);
   };
 }
 // ---------- 顔で自動の位置合わせ（目の位置と幅を、左の写真にそろえる） ----------
