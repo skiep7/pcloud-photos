@@ -297,8 +297,17 @@ async function openCompare(t){
   $('#crs').onclick=()=>{cmp.pan=[{x:0,y:0,s:1},{x:0,y:0,s:1}];drawPanels()};
   $('#csave').onclick=saveCompare;
   c.querySelectorAll('.pn').forEach(p=>attachPan(p,+p.dataset.p));
-  try{cmp.before=await loadBeforeImg(t);$('#cmsg').textContent='前回：'+fmtT(t.t);drawPanels()}
-  catch(e){$('#cmsg').textContent='前回の写真を読めませんでした：'+e.message}
+  // 表示用はサムネイルのリンクをそのまま使う（速い）。保存用（加工できる画像）は裏で取っておく
+  cmp.clean=loadBeforeImg(t);cmp.clean.catch(()=>{});
+  try{
+    const r=await api('getthumbslinks',{fileids:t.id,size:'2048x1024',type:'jpg'});const th=(r.thumbs||[])[0];
+    if(!th||th.result!==0)throw new Error((th&&th.error)||'リンクが取れません');
+    const im=new Image();im.referrerPolicy='no-referrer';
+    await new Promise((ok,ng)=>{im.onload=ok;im.onerror=()=>ng(new Error('画像を開けません'));im.src='https://'+th.hosts[0]+th.path});
+    cmp.before=im;
+  }catch(e){try{cmp.before=await cmp.clean}catch(e2){$('#cmsg').textContent='前回の写真を読めませんでした：'+e2.message;return}}
+  $('#cmsg').textContent='前回：'+fmtT(t.t);drawPanels();
+  const ov=$('#cov');if(ov)ov.src=cmp.before.src;
 }
 function setAfter(im){cmp.after=im;cmp.pan[1]={x:0,y:0,s:1};const ph=document.querySelector('#cmp .ph');if(ph)ph.remove();drawPanels()}
 function drawPanels(){
@@ -334,7 +343,9 @@ async function saveCompare(){
   const W=900,H=Math.round(W*ph/pw),bar=110,k=W/pw;
   const cv=document.createElement('canvas');cv.width=W*2+12;cv.height=H+bar;const g=cv.getContext('2d');
   g.fillStyle='#fff';g.fillRect(0,0,cv.width,cv.height);
-  [cmp.before,cmp.after].forEach((im,i)=>{
+  $('#cmsg').textContent='画像を作っています…';
+  let clean;try{clean=await cmp.clean}catch(e){$('#cmsg').textContent='前回の写真を保存用に読めませんでした：'+e.message;return}
+  [clean,cmp.after].forEach((im,i)=>{
     const s0=Math.max(pw/im.naturalWidth,ph/im.naturalHeight),q=cmp.pan[i],ox=i*(W+12);
     g.save();g.beginPath();g.rect(ox,0,W,H);g.clip();
     g.translate(ox+W/2+q.x*k,H/2+q.y*k);g.scale(s0*q.s*k,s0*q.s*k);g.drawImage(im,-im.naturalWidth/2,-im.naturalHeight/2);g.restore();
@@ -354,12 +365,11 @@ async function saveCompare(){
 // アプリの中のカメラ：前回の写真を半透明で重ねて撮る
 let camStream=null;
 async function openCam(){
-  if(!cmp.before){$('#cmsg').textContent='前回の写真の読み込みを待ってください';return}
   let w=$('#cam');if(!w){w=document.createElement('div');w.id='cam';document.body.appendChild(w)}
   w.innerHTML='<video playsinline autoplay muted></video><img alt="" id="cov"><div class="cbar"><button class="btn" id="camx">やめる</button>'+
     '<label class="note" style="color:#fff">重ね <input type="range" id="cop" min="0" max="100" value="40"></label><button id="shot" aria-label="撮る"></button></div>';
   w.style.display='block';
-  $('#cov').src=cmp.before.src;$('#cov').style.opacity=.4;
+  if(cmp.before)$('#cov').src=cmp.before.src;$('#cov').style.opacity=.4;
   $('#cop').oninput=e=>$('#cov').style.opacity=e.target.value/100;
   $('#camx').onclick=closeCam;
   try{
