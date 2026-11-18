@@ -298,6 +298,9 @@ function drawPanels(){
     if(!im){if(el)el.remove();return}
     if(!el||el.src!==im.src){if(el)el.remove();el=document.createElement('img');el.src=im.src;el.draggable=false;p.insertBefore(el,p.firstChild)}
     const pw=p.clientWidth,ph=p.clientHeight,s0=Math.max(pw/im.naturalWidth,ph/im.naturalHeight),q=cmp.pan[k];
+    // 余白が出ないように：縮小は枠いっぱいまで、移動は写真の端が枠の端に来るまで
+    q.s=Math.max(1,q.s);const mx=(im.naturalWidth*s0*q.s-pw)/2,my=(im.naturalHeight*s0*q.s-ph)/2;
+    q.x=Math.max(-mx,Math.min(mx,q.x));q.y=Math.max(-my,Math.min(my,q.y));
     el.style.width=im.naturalWidth*s0+'px';el.style.height=im.naturalHeight*s0+'px';
     el.style.transform='translate(-50%,-50%) translate('+q.x+'px,'+q.y+'px) scale('+q.s+')';
   });
