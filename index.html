@@ -369,11 +369,13 @@ async function openCam(){
   w.innerHTML='<video playsinline autoplay muted></video><img alt="" id="cov"><div class="cbar"><button class="btn" id="camx">やめる</button>'+
     '<label class="note" style="color:#fff">重ね <input type="range" id="cop" min="0" max="100" value="40"></label><button id="shot" aria-label="撮る"></button></div>';
   w.style.display='block';
+  const wt=document.createElement('div');wt.textContent='カメラを起動中…';wt.style.cssText='position:absolute;top:45%;left:0;right:0;text-align:center;color:#fff';w.appendChild(wt);
+  w.querySelector('video').addEventListener('playing',()=>wt.remove(),{once:true});
   if(cmp.before)$('#cov').src=cmp.before.src;$('#cov').style.opacity=.4;
   $('#cop').oninput=e=>$('#cov').style.opacity=e.target.value/100;
   $('#camx').onclick=closeCam;
   try{
-    camStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:3840},height:{ideal:2160}},audio:false});
+    camStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1920},height:{ideal:1440}},audio:false});
     w.querySelector('video').srcObject=camStream;
   }catch(e){closeCam();$('#cmsg').textContent='カメラを使えませんでした：'+e.message;return}
   $('#shot').onclick=()=>{
