@@ -52,7 +52,7 @@ button{font:inherit}
 #cmp .cbtns{display:flex;gap:8px;margin-top:8px}#cmp .cbtns .btn{flex:1;padding:10px 6px}
 #cam{position:fixed;inset:0;background:#000;display:none;z-index:70}
 #cam video,#cam #cov{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-#cam #cov{pointer-events:none}
+#cam #cov{pointer-events:none;transform-origin:center}
 #cam .cbar{position:absolute;left:0;right:0;bottom:0;padding:12px 16px calc(16px + env(safe-area-inset-bottom,0px));display:flex;align-items:center;justify-content:space-between;gap:10px;background:#0006}
 #cam #shot{width:70px;height:70px;border-radius:50%;border:5px solid #fff;background:#fff6}
 .grid .dh{grid-column:1/-1;padding:14px 8px 6px;font-weight:bold;font-size:15px}
@@ -277,7 +277,7 @@ async function openCompare(t){
   let c=$('#cmp');
   if(!c){c=document.createElement('div');c.id='cmp';document.body.appendChild(c)}
   c.style.display='flex';
-  c.innerHTML='<div class="ctop"><button class="btn" id="cx">✕ 閉じる</button><span class="note">版 11/19-e</span><span class="note" id="cmsg">前回の写真を読み込み中…</span></div>'+
+  c.innerHTML='<div class="ctop"><button class="btn" id="cx">✕ 閉じる</button><span class="note">版 11/19-f</span><span class="note" id="cmsg">前回の写真を読み込み中…</span></div>'+
     '<div class="cpan"><div class="pn" data-p="0"><span class="lb">前回</span></div><div class="pn" data-p="1"><span class="lb">今回</span><div class="ph">↓ 今回の写真を撮る</div></div></div>'+
     '<div class="cctl"><input type="text" id="clab" placeholder="例：施術3回目">'+
     '<div class="cbtns"><button class="btn main" id="ccam">アプリで撮る（重ねて）</button><button class="btn" id="cpick">iPhoneのカメラ・写真から</button></div>'+
@@ -392,6 +392,19 @@ async function openCam(){
   w.querySelector('video').addEventListener('playing',()=>wt.remove(),{once:true});
   if(cmp.before)$('#cov').src=cmp.before.src;$('#cov').style.opacity=.4;
   $('#cop').oninput=e=>$('#cov').style.opacity=e.target.value/100;
+  // 前回の写真（重ね）を、1本指で移動・2本指で拡大縮小。最初は比較画面で合わせた位置から
+  const pn0=document.querySelector('#cmp .pn'),rk=pn0&&pn0.clientWidth?w.clientWidth/pn0.clientWidth:1,q0=cmp.pan[0];
+  const oq={x:q0.x*rk,y:q0.y*rk,s:q0.s};
+  const ovd=()=>{$('#cov').style.transform='translate('+oq.x+'px,'+oq.y+'px) scale('+oq.s+')'};ovd();
+  const gz=document.createElement('div');gz.style.cssText='position:absolute;inset:0;touch-action:none';w.insertBefore(gz,w.querySelector('.cbar'));
+  {const pts=new Map();let st=null;
+   const snap=()=>{const a=[...pts.values()];st={x:oq.x,y:oq.y,s:oq.s,cx:a.reduce((m,v)=>m+v.x,0)/a.length,cy:a.reduce((m,v)=>m+v.y,0)/a.length,d:a.length>1?Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y):0}};
+   gz.addEventListener('pointerdown',e=>{gz.setPointerCapture(e.pointerId);pts.set(e.pointerId,{x:e.clientX,y:e.clientY});snap()});
+   gz.addEventListener('pointermove',e=>{if(!pts.has(e.pointerId))return;pts.set(e.pointerId,{x:e.clientX,y:e.clientY});
+     const a=[...pts.values()],cx=a.reduce((m,v)=>m+v.x,0)/a.length,cy=a.reduce((m,v)=>m+v.y,0)/a.length;
+     oq.x=st.x+(cx-st.cx);oq.y=st.y+(cy-st.cy);if(a.length>1&&st.d)oq.s=Math.min(5,Math.max(0.3,st.s*Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y)/st.d));ovd()});
+   const up=e=>{pts.delete(e.pointerId);if(pts.size)snap()};gz.addEventListener('pointerup',up);gz.addEventListener('pointercancel',up);
+   gz.addEventListener('wheel',e=>{e.preventDefault();oq.s=Math.min(5,Math.max(0.3,oq.s*(e.deltaY<0?1.05:0.95)));ovd()},{passive:false});}
   $('#camx').onclick=closeCam;
   // 外カメラ（environment）／インカメラ（user）を切り替える。最後に使ったほうを覚える
   const fb=document.createElement('button');fb.className='btn';fb.style.cssText='color:#fff;border-color:#fff8';
