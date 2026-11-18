@@ -365,6 +365,7 @@ async function saveCompare(){
 // アプリの中のカメラ：前回の写真を半透明で重ねて撮る
 let camStream=null;
 async function openCam(){
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){alert('このブラウザでは、アプリの中のカメラを使えません');return}
   let w=$('#cam');if(!w){w=document.createElement('div');w.id='cam';document.body.appendChild(w)}
   w.innerHTML='<video playsinline autoplay muted></video><img alt="" id="cov"><div class="cbar"><button class="btn" id="camx">やめる</button>'+
     '<label class="note" style="color:#fff">重ね <input type="range" id="cop" min="0" max="100" value="40"></label><button id="shot" aria-label="撮る"></button></div>';
@@ -377,7 +378,7 @@ async function openCam(){
   try{
     camStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1920},height:{ideal:1440}},audio:false});
     w.querySelector('video').srcObject=camStream;
-  }catch(e){closeCam();$('#cmsg').textContent='カメラを使えませんでした：'+e.message;return}
+  }catch(e){closeCam();alert('カメラを使えませんでした：'+e.name+' '+e.message);return}
   $('#shot').onclick=()=>{
     const v=w.querySelector('video'),vw=v.videoWidth,vh=v.videoHeight;if(!vw)return;
     // 画面に見えている範囲（cover）だけを切り出す＝重ねて合わせた見え方のまま
