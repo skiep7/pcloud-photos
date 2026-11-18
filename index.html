@@ -266,19 +266,20 @@ $('#vs').onclick=()=>saveCur();
 // 前回＝pCloudの写真、今回＝アプリの中のカメラ or iPhoneのカメラ・写真から。指で位置合わせ → 1枚にして保存
 const cmp={before:null,after:null,bt:null,label:'',pan:[{x:0,y:0,s:1},{x:0,y:0,s:1}]};
 async function loadBeforeImg(t){
-  // 2048x1024のjpg（HEICでも出る）。だめなら中継役から元ファイル
-  let blob=null;
-  try{const r=await api('getthumbslinks',{fileids:t.id,size:'2048x1024',type:'jpg'});const th=(r.thumbs||[])[0];
-    if(th&&th.result===0){const res=await fetch('https://'+th.hosts[0]+th.path,{referrerPolicy:'no-referrer'});if(res.ok)blob=await res.blob()}}catch(e){}
-  if(!blob){const res=await fetch(PROXY+'?host='+encodeURIComponent(cfg.host)+'&token='+encodeURIComponent(cfg.token)+'&fileid='+t.id);if(!res.ok)throw new Error(await res.text());blob=await res.blob()}
-  return blobImg(blob);
+  // 保存用は、元のファイル（高画質）を中継役から。開けなければ（PCでHEICなど）サムネイル
+  try{const res=await fetch(PROXY+'?host='+encodeURIComponent(cfg.host)+'&token='+encodeURIComponent(cfg.token)+'&fileid='+t.id);
+    if(res.ok)return await blobImg(await res.blob())}catch(e){}
+  const r=await api('getthumbslinks',{fileids:t.id,size:'2048x1024',type:'jpg'});const th=(r.thumbs||[])[0];
+  if(!th||th.result!==0)throw new Error((th&&th.error)||'リンクが取れません');
+  const res=await fetch('https://'+th.hosts[0]+th.path,{referrerPolicy:'no-referrer'});if(!res.ok)throw new Error('サムネイルを取れません');
+  return blobImg(await res.blob());
 }
 function blobImg(blob){return new Promise((ok,ng)=>{const im=new Image();im.onload=()=>ok(im);im.onerror=()=>ng(new Error('画像を開けません'));im.src=URL.createObjectURL(blob)})}
 async function openCompare(t){
   let c=$('#cmp');
   if(!c){c=document.createElement('div');c.id='cmp';document.body.appendChild(c)}
   c.style.display='flex';
-  c.innerHTML='<div class="ctop"><button class="btn" id="cx">✕ 閉じる</button><span class="note">版 11/19-h</span><span class="note" id="cmsg">前回の写真を読み込み中…</span></div>'+
+  c.innerHTML='<div class="ctop"><button class="btn" id="cx">✕ 閉じる</button><span class="note">版 11/19-i</span><span class="note" id="cmsg">前回の写真を読み込み中…</span></div>'+
     '<div class="cpan"><div class="pn" data-p="0"><span class="lb">前回</span></div><div class="pn" data-p="1"><span class="lb">今回</span><div class="ph">↓ 今回の写真を撮る</div></div></div>'+
     '<div class="cctl"><input type="text" id="clab" placeholder="例：施術3回目">'+
     '<div class="cbtns"><button class="btn main" id="ccam">アプリで撮る（重ねて）</button><button class="btn" id="cpick">iPhoneのカメラ・写真から</button></div>'+
@@ -345,7 +346,7 @@ async function saveCompare(){
   // 作った画像が残っていれば（iPhoneに一度断られたとき）、作り直さずにすぐ共有する
   if(cmp.pending)return shareCompare(cmp.pending);
   const p=document.querySelector('#cmp .pn'),pw=p.clientWidth,ph=p.clientHeight;
-  const W=900,H=Math.round(W*ph/pw),bar=110,k=W/pw;
+  const W=1600,H=Math.round(W*ph/pw),bar=196,k=W/pw,F=W/900; // 片側 横1600px（高画質）
   const cv=document.createElement('canvas');cv.width=W*2+12;cv.height=H+bar;const g=cv.getContext('2d');
   g.fillStyle='#fff';g.fillRect(0,0,cv.width,cv.height);
   $('#cmsg').textContent='画像を作っています…';
@@ -356,9 +357,9 @@ async function saveCompare(){
     g.translate(ox+W/2+q.x*k,H/2+q.y*k);g.scale(s0*q.s*k,s0*q.s*k);g.drawImage(im,-im.naturalWidth/2,-im.naturalHeight/2);g.restore();
   });
   const d=t=>{const x=new Date(t);return x.getFullYear()+'/'+(x.getMonth()+1)+'/'+x.getDate()};
-  g.fillStyle='#222';g.font='bold 40px -apple-system,"Hiragino Sans",sans-serif';g.textAlign='center';
-  g.fillText('前回 '+(cmp.bt?d(cmp.bt):''),W/2,H+50);g.fillText('今回 '+d(Date.now()),W+12+W/2,H+50);
-  if(cmp.label){g.font='bold 36px -apple-system,"Hiragino Sans",sans-serif';g.fillText(cmp.label,cv.width/2,H+98)}
+  g.fillStyle='#222';g.font='bold '+Math.round(40*F)+'px -apple-system,"Hiragino Sans",sans-serif';g.textAlign='center';
+  g.fillText('前回 '+(cmp.bt?d(cmp.bt):''),W/2,H+50*F);g.fillText('今回 '+d(Date.now()),W+12+W/2,H+50*F);
+  if(cmp.label){g.font='bold '+Math.round(36*F)+'px -apple-system,"Hiragino Sans",sans-serif';g.fillText(cmp.label,cv.width/2,H+98*F)}
   const blob=await new Promise(r=>cv.toBlob(r,'image/jpeg',0.92));
   const n=new Date(),pad=x=>String(x).padStart(2,'0');
   const file=new File([blob],'before-after_'+n.getFullYear()+pad(n.getMonth()+1)+pad(n.getDate())+'_'+pad(n.getHours())+pad(n.getMinutes())+'.jpg',{type:'image/jpeg'});
